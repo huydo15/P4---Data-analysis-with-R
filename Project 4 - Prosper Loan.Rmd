@@ -1,0 +1,729 @@
+---
+output: html_document
+---
+Data Analysis with R - Prosper Loan
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using
+# in your analysis in this code chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk.
+# This prevents the code from displaying in the knitted HTML output.
+# You should set echo=FALSE for all code chunks in your file.
+
+library(ggplot2)
+library(FinCal)
+library(plyr)
+library(jrvFinance)
+library(gridExtra)
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+setwd("C:/Users/HAL/Data analyst/P4 - Data Analysis with R/Project")
+loandata <- read.csv("prosperLoanData.csv")
+```
+
+# Univariate Plots Section
+This dataset contains the loan data for Prosper customers from 2005 to 2014. Prosper is a company based in San Francisco, California. Their website, Prosper.com, provides a marketplace for peer-to-peer lending. Both lender and borrow can use the website to invest or borrow money. The loan examined in this dataset is best described as an annuity. The loan principle balance is provided by the lender to the borrower at the beginning of the loan. Over the term of the loan, the borrower pays a fixed monthly payment that includes a portion of principle and interest. If all monthly payments are made, the loan is paid off at the end of its term. Prosper performs all screening, initial credit checks, and collection of the loan in exchange for a 1% fee on each loan payment.
+
+Overall, this Prosper dataset has 113937 objects with 82 variables. The variables provide information regarding the loan, the borrower, and the Prosper ratings. The data can be numeric, date, integer, range, or factors. To perform trend analysis, I've extracted the year in Listing Creation Date to create the Listing Creation Year variable.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots}
+loandata$ListingCreationYear = 
+  as.numeric(substr(as.character(loandata$ListingCreationDate),1,4))
+
+str(loandata)
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots1}
+ggplot(aes(x = ListingCreationYear), data = loandata) +
+  geom_bar(width=.5) + 
+  scale_x_continuous(breaks = seq(2005,2014,1)) + 
+  labs(title = "Number of loans per year")
+```
+  
+The number of loans in 2005 was too small to show on this graph. Perhaps it's the year Prosper was found and has not gained traction. The number of loans rise to about 6,000 in 2006, doubled itself in 2007, dropped off significantly in 2009, and then steadily increased again from 2010 to 2013. The data is probably pulled right after March 2014, which explains the low volume in 2014. The drop in 2008 is due to a cease-and-desist filing from SEC against Prosper for violating Section 8A of the Securities Act of 1933 (https://www.sec.gov/litigation/admin/2008/33-8984.pdf). In the same year, lenders also filed a class action lawsuit against Prosper to seek damages from Prosper's unqualified and unregistered securities. To resume operation, Prosper first had to secure proper registration from SEC. In addition, it overhauled its website and loan application processes to provide more accurate and reliable information regarding borrowers' credit risks. Several new metrics (Prosper Loan Rating, Estimated Loss, Estimated Effective Yield, etc.) are made available after July 2009 to provide transparency and assist lenders with making informed loan decisions.
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots2}
+#explore borrower rate
+ggplot(loandata, aes(BorrowerRate)) + 
+  geom_histogram(binwidth = 0.01) +
+  scale_x_continuous(limits = c(0, 0.4), breaks = seq(0,0.4,0.05)) +
+  labs(title = "Histogram of Borrower Rate")
+
+
+# histogram of loan amount
+ggplot(loandata, aes(LoanOriginalAmount)) +
+  geom_histogram(binwidth = 1000) +
+  scale_x_continuous(limits = c(0,25000), breaks = seq(0,25000,2500)) +
+  labs(title = "Histogram of Loan Amount")
+
+#histogram of Terms 
+qplot(x = Term, data = loandata) + 
+  scale_x_continuous(breaks = c(12,36,60)) + 
+  scale_y_continuous(breaks = seq(0,100000,10000)) +
+  labs(title = "Number of loans by Term")
+```
+  
+Histogram of Borrower Rate shows that it has a normal distribution. Most loans are borrowed at the interest rate between 10% and 25%. Histogram of loan amounts is skewed to the left and most loans stay between $2,500 and $5,000. However, there are big spikes around the 10k, 15k, 20k, and 25k marks. Since loans that are above $25,000 are rare, I've excluded them from this graph. The majority of loans (more than 80,000) has a term of 36 months. About 25,000 loans have a 60 months term. 12 months term is the least popular (less than 2,000).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots3}
+#histogram of Credit Score
+ggplot(loandata, aes(CreditScoreRangeLower)) + 
+  geom_histogram(binwidth = 10) +
+  scale_x_continuous(limits = c(400,800), breaks = seq(400,800,25)) + 
+  labs(title = "Histogram of Credit Score")
+
+#histogram of Prosper Rating
+qplot(x = ProsperRating..numeric., data = loandata) +
+  scale_x_continuous(breaks = seq(0,7,1)) + 
+  labs(title = "Histogram of Prosper Rating")
+
+#histogram of Prosper Score
+qplot(x = ProsperScore, data = loandata) +
+  scale_x_continuous(breaks = seq(0,10,1)) + 
+  labs(title = "Histogram of Prosper Score")
+
+```
+  
+Most borrowers have a credit score around 675, which is typical in Unites States. Both Prosper Rating and Prosper Score have a normal distribution and show that most borrowers carry an average default risk. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots4}
+#histogram of stated monthly income
+qplot(x = StatedMonthlyIncome, data = loandata) + 
+  scale_x_continuous(limits = c(0,10000),breaks = seq(0,10000,1000)) +
+  labs(title = "Histogram of Stated Monthly Income")
+
+qplot(x = StatedMonthlyIncome, 
+      data = subset(loandata, IncomeVerifiable == "True")) + 
+  scale_x_continuous(limits = c(0,10000),breaks = seq(0,10000,1000)) +
+  labs(title = "Histogram of Verified Stated Monthly Income")
+
+#histogram of debt to income ratio
+qplot(x = DebtToIncomeRatio, data = loandata) + 
+  scale_x_continuous(limits = c(0,1.2),breaks = seq(0,1.2,0.1)) +
+  labs(title = "Histogram of Debt to Income Ratio")
+```
+
+Initial histogram of stated monthly income doesn't make much sense. It seems that the range of income is so large (from 0 to more than 600,000) that most data is crowded to the left. A quick drill-down of some extremely high earners shows that these are most likely errors. By excluding income that are more than 10,000, the histogram of stated monthly income shows a normal distribution. Most borrowers earned around $4,500 a month. Another histogram with only verified monthly income shows similar result. Debt to income ratio is largely around 20%. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots5}
+
+#histogram of Listing Category
+qplot(x = ListingCategory..numeric., data = loandata) + 
+  scale_x_continuous(breaks = seq(0,20,1))
+
+#histogram of Estimated Return
+qplot(x = EstimatedReturn, data = loandata) + 
+  scale_x_continuous(limits = c(0,0.2), breaks = seq(0,0.2,0.05))
+```
+
+The majority of loans are for debt consolidation. The other 2 largest categories are home improvement and business. Many do not list the reason for borrowing. Overall, based on these initial graphs, the majority of Prosper borrowers seem to have good income, average credit score, and relatively low default risk (based on Prosper rating). Based on Prosper's own metric of Estimated Return, most loans are healthy with an average 7% to 10% return.
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+The Prosper dataset has 113937 objects with 82 variables. The variables provide information regarding the loan, the borrower, and the Prosper ratings. The data can be numeric, date, integer, range, or factors.
+
+### What is/are the main feature(s) of interest in your dataset?
+I'm interested in analyzing the real return of Prosper loans from the perspective of a lender. Prosper advertise itself as an alternative investment (rather than the traditional stocks and bonds) where lenders can help out other fellow human beings while earning a solid 7.5% estimated return on average (https://www.prosper.com/invest). Initial graphs show that borrowers have good income, healthy credit, and manageable debt ratio. Prosper's Estimated Return supports its own claim of average 7.5% return. However, detailed analysis of completed loans (finished, charge off, or default) is needed to confirm this claim.
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+
+If Prosper's metrics do not reliably predict real return, I'd like to see if other variables (debt to income, homeowner, % of loan self-funded, etc...) would have a better correlation.
+
+### Did you create any new variables from existing variables in the dataset?
+For the graphs above, I've extracted the listing year from listing creation date variable. For the next portion, several new metrics regarding loan profit, return on investment will be used to examine the historical return of Prosper loans in this dataset.
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+A summary of Stated Monthly Income shows a max of 1,750,000. Close examination shows that monthly income above $10,000 are few and most likely errors. For better result, I've cut these outliers from the graphs. I've used the same approach with debt to income ratio.
+
+
+# Bivariate Plots Section
+To examine actual return of Prosper Loan, I've created a new dataset (FinishedLoan) that only contains finished loans (status is Completed, Charged Off, or Default) with Prosper Score. This creates a relatively small dataset with only 8756 objects because 1) Prosper Score is only available for loans after July 2009, 2) most loans have a 3 year term, and 3) the original dataset only goes up to March 2014. Since this is still a substantial number of loans, I've decided to proceed with this new dataset.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots}
+FinishedLoan <- subset(loandata, 
+                       loandata$LoanStatus == c('Completed',
+                                                'Defaulted',
+                                                'Chargedoff') &
+                         !is.na(loandata$ProsperScore))
+
+#Graphs using Prosper Estimated Return
+
+#Estimated Return over the years
+ggplot(aes(x = factor(ListingCreationYear), y = EstimatedReturn), 
+       data = FinishedLoan) + 
+  geom_jitter(alpha = 1/20) + 
+  geom_boxplot(alpha= 0.3)
+
+#Estimated Return by loan type
+ggplot(aes(x = factor(ListingCategory..numeric.), y = EstimatedReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20) + 
+  geom_boxplot(alpha= 0.3)
+
+#Estimated Return by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = EstimatedReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,10,1)) +
+  scale_y_continuous(breaks = seq(-0.5,0.5,0.1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+
+with(FinishedLoan, cor.test(FinishedLoan$EstimatedReturn, 
+                            FinishedLoan$ProsperScore, 
+                            method = "pearson"))
+
+```
+
+Prosper Estimated Return is calculated by subtracting Estimated Loss from Estimated Effective Yield. Estimated Effective Yield is equal to the borrower interest rate (i) minus the servicing fee rate, (ii) minus estimated uncollected interest on charge-offs, (iii) plus estimated collected late fees. In other words, Prosper Estimated Effective Yield is the yield lender should expect on good loans that do not default. Prosper Estimated Return is the best estimate of the loan return by factoring in the default rate of similar loans.
+
+By Prosper's own estimation, the return on its loan seems pretty solid at around 10%. Loans with negative estimated returns are rare. Interestingly, loans with lower Prosper Score have higher estimated return compared to loans with higher score. The red trend line, which represents the mean estimated return for each Prosper Rating, rise slightly from 1 to 2, then steadily decrease as Prosper Rating gets higher. The correlation between Prosper Score and Estimated Return is -0.36. This relationship may seem reasonable since borrowers with lower credit score (or Prosper Score) are considered higher risk and must endure higher interest rate. The next few graphs continue to examine this relationship between estimated return and credit risk.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots2}
+#Estimated Return by Credit Score
+ggplot(aes(x = CreditScoreRangeLower, y = EstimatedReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(550,850,50), limits = c(550,850)) +
+  scale_y_continuous(breaks = seq(-0.5,0.5,0.1))
+
+with(FinishedLoan, cor.test(FinishedLoan$EstimatedReturn, 
+                            FinishedLoan$CreditScoreRangeLower, 
+                            method = "pearson"))
+
+```
+
+Similar to Prosper Score, Credit Score has a negative relationship with Estimated Return. Correlation is -0.39.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots3}
+#Borrow Rate vs Prosper Score
+ggplot(aes(x = ProsperRating..numeric., y = BorrowerRate), 
+       data = FinishedLoan) +
+  geom_boxplot(aes(group= FinishedLoan$ProsperRating..numeric.))+
+  scale_x_continuous(breaks = seq(0,10,1)) +
+  scale_y_continuous(breaks = seq(0,0.4,0.05))
+
+with(FinishedLoan, cor.test(FinishedLoan$BorrowerRate, 
+                            FinishedLoan$ProsperRating..numeric., 
+                            method = "pearson"))
+
+#Borrow Rate vs Credit Score
+ggplot(aes(x = CreditScoreRangeLower, y = BorrowerRate), 
+       data = FinishedLoan) +
+  geom_boxplot(aes(group= FinishedLoan$CreditScoreRangeLower))+
+  scale_x_continuous(breaks = seq(600,900,25)) +
+  scale_y_continuous(breaks = seq(0,0.4,0.05))
+
+with(FinishedLoan, cor.test(FinishedLoan$BorrowerRate, 
+                            FinishedLoan$CreditScoreRangeLower, 
+                            method = "pearson"))
+```
+
+Borrower Rate has a strong inverse relationship with Prosper Score (correlation is -0.94). Borrower Rate also has a negative relationship with Credit Score, though the correlation is weaker at -0.58. This high Borrower Rate is probably the main driving factor for the high estimated return for higher risk loans (loans with low credit score and low Prosper Rating). 
+However, I would suspect that these loans should have a higher default rate that negates the gain from their higher interest rates. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots4}
+
+#Estimated Loss by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = EstimatedLoss), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  scale_y_continuous(breaks = seq(-0.5,0.5,0.1)) +
+  geom_line(color = 'red', stat  = 'summary', fun.y = mean)
+
+with(FinishedLoan, cor.test(FinishedLoan$ProsperRating..numeric., 
+                            FinishedLoan$EstimatedLoss, 
+                            method = "pearson"))
+
+#loan status by Prosper Rating
+ggplot(FinishedLoan, aes(ProsperRating..numeric.)) +
+  geom_bar(aes(fill = LoanStatus), position = "dodge") +
+  scale_x_continuous(breaks = seq(0,7,1))
+```
+
+From the 2 graphs above, it can be seen that lower Prosper Rating does have higher default rate and Prosper does assign a higher loss percentage for those loans. However, these higher estimated losses do not have enough weight to significantly lower the estimated return of the whole group. If this trend holds true, lenders may be better off investing on higher risk loans (Prosper Rating = 2, 3, or 4) for higher return as long as they properly diversify to control default risk.
+
+To test this trend and to compare Prosper's Estimated Return with actual return, I created 3 new variables:
+
+Loan profit or loss = (Customer Payments - Service Fees + Principle Recovery Payments - Collection Fee) - Loan Original Amount
+
+Profit Loss Percentage = Loan profit or loss / Loan Original Amount
+
+Profit Loss Percentage per Year = Profit Loss Percentage / (Term / 12)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots5}
+
+FinishedLoan$ProfitOrLoss = as.numeric(
+  (FinishedLoan$LP_CustomerPayments + 
+     FinishedLoan$LP_ServiceFees +
+     FinishedLoan$LP_NonPrincipalRecoverypayments +
+     FinishedLoan$LP_CollectionFees) -
+     FinishedLoan$LoanOriginalAmount)
+
+FinishedLoan$ProfitLossPercentage = FinishedLoan$ProfitOrLoss / 
+  FinishedLoan$LoanOriginalAmount
+
+FinishedLoan$ProfitLossPercentageperYear = 
+  as.numeric(FinishedLoan$ProfitLossPercentage/ (FinishedLoan$Term /12))
+
+summary(FinishedLoan$ProfitOrLoss)
+
+
+
+#Profit or loss by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = ProfitOrLoss), 
+       data = FinishedLoan) +
+  geom_boxplot(aes(group= FinishedLoan$ProsperRating..numeric.)) +
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  scale_y_continuous(breaks = seq(-25000,10000,5000))
+
+ggplot(aes(x = ProsperRating..numeric., y = ProfitOrLoss), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean) +
+  labs(title = "ProfitorLoss by ProsperRating..numeric with mean trend line")
+
+```
+
+The new metrics show some troubling signs. A quick summary of loan profit or loss shows that the mean loss is -230.6. The boxplot of profit or loss shows that the majority of loans with lower Prosper ratings incur a loss and the mean profit is barely above 0. There are many outliers with big losses for loans with higher Prosper Rating. Close examination of these outliers shows that they are legitimate loans that are in default soon after a few payments. When these outliers are accounted for in the scatterplot, the mean return is often below 0.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots6}
+#Profit or Loss Percentage by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = ProfitLossPercentage), 
+       data = FinishedLoan) +
+  geom_boxplot(aes(group= FinishedLoan$ProsperRating..numeric.)) +
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  scale_y_continuous(breaks = seq(-1.5,1.5,0.5))
+
+ggplot(aes(x = ProsperRating..numeric., y = ProfitLossPercentage), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+
+#Profit or Loss Percentage per Year by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = ProfitLossPercentageperYear), 
+       data = FinishedLoan) +
+  geom_boxplot(aes(group= FinishedLoan$ProsperRating..numeric.)) +
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  scale_y_continuous(breaks = seq(-1.5,1.5,0.5))
+
+ggplot(aes(x = ProsperRating..numeric., y = ProfitLossPercentageperYear), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  scale_y_continuous(breaks = seq(-0.5,0.5,0.1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+```
+
+Similarly, the Profit or Loss percentage and Profit or Loss percentage per year shows low to negative mean return for most Prosper loans.
+
+To further investigate the defaulted loans, I created a new variable to calculate the monthly payment of the annuity based on borrower rate since this data is not always available in the loan monthly payment variable. After that, I divided customer payment by the calculated monthly payment to find the estimated number of payments a borrower makes on a loan.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots7}
+#Calculate monthly payment based on borrower rate
+FinishedLoan$PMTbasedOnBorrowerRate = 
+  round(pmt(r=FinishedLoan$BorrowerRate/12,
+            n=FinishedLoan$Term,
+            pv=-FinishedLoan$LoanOriginalAmount,
+            fv=0,
+            type=0),
+        digits=2)
+
+#Estimated number of payments
+FinishedLoan$EstimatedNumberOfPayments = 
+  round((FinishedLoan$LP_CustomerPayments/
+           FinishedLoan$PMTbasedOnBorrowerRate),
+    digits=0)
+
+#scatterplot of estimated number of loan payments for defaulted or chargedoff loans
+ggplot(aes(x = Term, y = EstimatedNumberOfPayments), 
+       data = subset(FinishedLoan, 
+                     FinishedLoan$LoanStatus == c('Defaulted',
+                                                  'Chargedoff'))) +
+  geom_jitter(alpha = 1/5) +
+  scale_x_continuous(breaks=c(12,36,60)) +
+  scale_y_continuous(breaks=seq(0,60,6)) +
+  labs(title = "Estimated number of loan payments 
+       for Defaulted or Chargedoff Loans")
+
+#bar chart of estimated number of loan payments for defaulted or chargedoff loans
+ggplot(subset(FinishedLoan, 
+              FinishedLoan$LoanStatus == c('Defaulted','Chargedoff')),
+       aes(EstimatedNumberOfPayments)) +
+  geom_bar(aes(fill = factor(Term)), position = "dodge") +
+  scale_x_continuous(breaks=seq(0,60,6)) + 
+  labs(title = "Estimated number of loan payments 
+       for Defaulted or Chargedoff Loans")
+
+#Number of loans per year by type
+ggplot(FinishedLoan, aes(ListingCreationYear)) +
+  geom_bar(aes(fill = LoanStatus), position = "dodge") +
+  scale_x_continuous(breaks = seq(2005,2014,1)) +
+  labs(title = "Number of loans per year by type")
+
+ggplot(FinishedLoan, aes(ListingCreationYear)) +
+  geom_bar(aes(fill = LoanStatus), position = "fill") +
+  scale_x_continuous(breaks = seq(2005,2014,1)) +
+  labs(title = "Percentage of defaulted loans per year")
+```
+
+On the scatterplot, the number of loan payments for default and charge off loans are concentrated in the bottom half. This means that most borrowers default before paying off half of the loan. Similarly, the bar chart shows that most defaulted loans stop payments before reaching the halfway point of their terms. Since Prosper loans are non-collateral, lenders stand to lose all of their investments on defaulted loans. The effect of defaulted loans may explain the low profit or loss percentage that I have showed earlier. However, I do not believe Prosper would have stayed in business until now if all their lenders lost money year after year. Therefore, I've decided to revisit my calculations on loan return.
+
+After a close examination of my previous calculations on profit or loss, I noticed that the profit or loss percentage calculation does not consider the time value of money. Since loan payment is made monthly, the lender could have reinvested that money to generate higher yield. For finished loans that are paid on time, my calculation of profit or loss percentage per year is often lower than lender yield.
+
+Thus, I've added another new variable to measure the return on Prosper loan. This new metric discount the money lender receives per month (borrower's payment - Prosper fees) by the estimated number of loan payments to show the real rate of return for the annuity. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots8}
+
+FinishedLoan$Actualmonthlypayment =  as.numeric(
+  (FinishedLoan$LP_CustomerPayments + FinishedLoan$LP_ServiceFees + FinishedLoan$LP_NonPrincipalRecoverypayments + 
+     FinishedLoan$LP_CollectionFees) / 
+    FinishedLoan$EstimatedNumberOfPayments)
+
+
+#for loans that default without paying a single payment, the estimated number of payments is 0. Sometimes this cause actual monthly payments to become N/A or inf. Set all N/A or inf to 0.
+is.na(FinishedLoan) <- do.call(cbind,lapply(FinishedLoan, is.infinite))
+
+FinishedLoan[is.na(FinishedLoan)] <- 0
+
+FinishedLoan$RateofReturn = 0
+
+for (i in 1:nrow(FinishedLoan)) {
+  pv = (FinishedLoan[i, "LoanOriginalAmount"])
+  instalment = (FinishedLoan[i, "Actualmonthlypayment"])
+  n.periods = (FinishedLoan[i, "EstimatedNumberOfPayments"])
+  #if statement for special case when Actual monthly payment is negative (where all the fees exceed money collected). Since the most a lender can loose is 100% of investment, the lowest return on loan is -100%
+  if (instalment < 0) {
+    AnnuityRate = -1
+  } else if (instalment == 0) {
+    AnnuityRate = -1
+    } else {
+  AnnuityRate = annuity.rate(pv=pv, 
+                             instalment=instalment, 
+                             n.periods=n.periods, 
+                             cf.freq=12, 
+                             comp.freq=12) 
+  }
+#Since the most a lender can loose is 100% of investment, replace all rate of return that is less than -1 with -1
+  if (AnnuityRate < -1) {
+    FinishedLoan[i,"RateofReturn"] = -1
+  } else {
+    FinishedLoan[i,"RateofReturn"] = AnnuityRate
+  }
+}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots9}
+#Rate of Return by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,7,1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+
+#Rate of Return over the year
+ggplot(aes(x = ListingCreationYear, y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(2009,2014,1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+```
+
+The result is not much different with the new Rate of Return. While Prosper's mean estimated rate of return is positive, the actual mean Rate of Return is close to 0 or below 0. To dig deeper into this difference, I've compared the Rate of Return, Lender's Yield, and Prosper's estimated rate of return for different loan status. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots10}
+FinishedLoan$MonthsEarlyPaments = FinishedLoan$Term - 
+  FinishedLoan$EstimatedNumberOfPayments
+
+FinishedLoan$LoanStatus2 = FinishedLoan$LoanStatus
+
+FinishedLoan$LoanStatus2 <- ifelse(FinishedLoan$MonthsEarlyPaments <= 0, 
+                                   'CompletedOnTime', 'CompletedEarly')
+
+FinishedLoan$LoanStatus2 <- ifelse(FinishedLoan$MonthsEarlyPaments < 0, 
+                                   'CompletedLate', FinishedLoan$LoanStatus2)
+
+FinishedLoan$LoanStatus2 <- ifelse(FinishedLoan$LoanStatus == c('Defaulted'), 'DefaultedorChargedoff', FinishedLoan$LoanStatus2)
+
+FinishedLoan$LoanStatus2 <- ifelse(FinishedLoan$LoanStatus == c('Chargedoff'), 'DefaultedorChargedoff', FinishedLoan$LoanStatus2)
+
+ggplot(aes(x = LoanStatus2), data = FinishedLoan) +
+  geom_point(aes(y = RateofReturn), color = 'red', size = 5, stroke = 2,
+             shape = 3, stat  = 'summary', fun.y = mean) + 
+  geom_point(aes(y = LenderYield), color = 'blue', size = 5, stroke = 2,
+             shape = 1, stat  = 'summary', fun.y = mean) + 
+  geom_point(aes(y = EstimatedReturn), color = 'green', size = 5, stroke = 2,
+             shape = 2, stat  = 'summary', fun.y = mean) + 
+  scale_y_continuous(limits = c(-0.8,0.4),breaks = seq(-0.8,0.4, 0.1)) +
+  labs(title = "Mean RateofReturn (Red) vs LenderYield (Blue) 
+       vs ProsperEstimatedReturn(Green)")
+```
+
+For loans that complete on time (number of payments = Term), the mean Rate of Return (red) is the same as the mean Lender's Yield (blue). The Prosper's mean Estimated of Return (green) is lower since it includes an estimated loss (which does not apply in this case since loans are paid in full and on time).
+
+For loans that complete late (number of payments > Term), the mean Rate of Return (red) is slightly higher than the mean Lender's Yield (blue) since the lender gets some extra interest on the loan. 
+
+For loans that complete early (number of payments < Term), the mean Rate of Return (red) is lower than the mean Lender's Yield (blue) since the borrower saves on interest fee by paying off the loan earlier.
+
+For Defaulted or Chargedoff loans, the mean Rate of Return (red) is significantly lower than the mean Lender's Yield (blue) and the Prosper's mean Estimated of Return (green). This major difference explains why the Rate of Return metric often shows poor return while Prosper's estimated Returns are always positive.
+
+Since Prosper's Estimated Return is not a reliable measurement of return on Prosper loans, the section below will use Rate of Return as the principle measurement of loan return.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots11}
+#Rate of Return by listing category
+ggplot(aes(x = ListingCategory..numeric., y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20) + 
+  scale_x_continuous(breaks = seq(0,20,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+
+#Rate of Return by Prosper Rating
+ggplot(aes(x = ProsperRating..numeric., y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(breaks = seq(0,10,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean)
+
+with(FinishedLoan, cor.test(FinishedLoan$RateofReturn, 
+                            FinishedLoan$ProsperScore, 
+                            method = "pearson"))
+
+#Rate of Return by Credit Score
+ggplot(aes(x = CreditScoreRangeLower, y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(550,850,50), limits = c(550,850)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+
+with(FinishedLoan, cor.test(FinishedLoan$RateofReturn, 
+                            FinishedLoan$CreditScoreRangeLower, 
+                            method = "pearson"))
+```
+
+The positive relationship between Rate of Return and Prosper Score is the opposite of the negative relationship between Prosper Estimated Return and Prosper Score. As Prosper Score goes up, Rate of Return increases. There is a weak positive correlation between these 2 variables. Similarly, Rate of Return is also positively correlated with Credit Score.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots12}
+#Rate of Return by Debt to Income Ratio
+ggplot(aes(x = DebtToIncomeRatio, y = RateofReturn), data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_line(color = 'red', size = 1.5, stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(0,1,0.1), limits = c(0,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+
+with(FinishedLoan, cor.test(FinishedLoan$DebtToIncomeRatio, 
+                            FinishedLoan$RateofReturn, 
+                            method = "pearson"))
+```
+
+Debt to income ratio does not seem to a good predictor of Rate of Return.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots13}
+#Rate of Return by Income Range
+ggplot(aes(x = IncomeRange, y = RateofReturn), data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_point(aes(y = RateofReturn), color = 'red', size = 5, shape = 3, 
+             stroke = 2, stat  = 'summary', fun.y = mean) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+
+#Rate of Return by StatedMonthlyIncome
+ggplot(aes(x = StatedMonthlyIncome, y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  scale_x_continuous(limits = c(0,10000)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+
+with(FinishedLoan, cor.test(FinishedLoan$RateofReturn, 
+                            FinishedLoan$StatedMonthlyIncome, 
+                            method = "pearson"))
+```
+
+Loans from borrowers with income range of 25,000 and above tend to have higher rate of return. Stated monthly income vs Rate of Return is too noisy to interpret. As discussed earlier, this variable contains many unreasonably high figures and may not be reliable. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots14}
+#Rate of Return by Investment from friends count
+ggplot(aes(x = InvestmentFromFriendsCount, y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_point(aes(y = RateofReturn), color = 'red', size = 5, 
+             stroke = 2, shape = 3, stat  = 'summary', fun.y = mean) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+
+#Rate of Return by Homeowner
+ggplot(aes(x = IsBorrowerHomeowner, y = RateofReturn), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_point(aes(y = RateofReturn), color = 'red', size = 5, 
+             stroke = 2, shape = 3, stat  = 'summary', fun.y = mean) +
+  scale_y_continuous(breaks = seq(-1,1,0.1))
+```
+
+On average, loans with at least 1 friend investor have higher rate of return. However, these loans are few. Homeownership doesn't seem to have any effect on rate of return.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+
+Prosper's Estimated Return is not a good indicator of Prosper loans' true rate of return since it tends to underestimate the effect of defaulted loans on lender's return. This creates the illusion that higher risk loans are better investments due to their attractive higher APR. By my own calculation of Rate of Return, lenders are better off sticking to safer loan with good, verifiable credit score.
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+Rate of Return has a positive correlation with Prosper Rating. As Prosper Rating gets higher, Rate of Return gets higher. Similarly, loans with higher credit score tend to have higher Rate of Return. Borrowers with higher income range tend to generate higher Rate of Return. Also, loans with verifiable income have higher Rate of Return.
+
+Listing category and Homeownership do not have a significant impact on Rate of Return. Surprisingly, debt to income ratio does not have any noticeable influence on Rate of Return. I had suspected that borrowers with lower debt to income ratio will be more likely to pay off their loans, thus, contributing to a higher Rate of Return. 
+
+### What was the strongest relationship you found?
+
+Strongest relationship I found is between Borrower Rate and Prosper's Estimated Return (cor = 0.7504967).
+
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots}
+ggplot(aes(x = CreditScoreRangeLower, y = RateofReturn, 
+           group = IncomeRange), 
+       data = FinishedLoan) +
+  geom_line(aes(y= RateofReturn, color = IncomeRange), 
+            stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(550,850,50), limits = c(550,850)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  labs(title = "Rate of Return vs. Credit Score grouped by Income Range") 
+```
+
+This plot tests whether the relationship between Rate of Return and Credit Score is different for certain income ranges. Loans in lower income Range (less than 25,000) and unemployed category tend to be unpredictable. For these groups, Credit Score alone is not a good predictor of Rate of Return.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots2}
+ggplot(aes(x = factor(CreditScoreRangeLower),
+           y = RateofReturn, 
+           fill = factor(InvestmentFromFriendsCount)), 
+       data = FinishedLoan) +
+  geom_boxplot() +
+  labs(title = "Rate of Return vs. Credit Score 
+       grouped by InvestFromFriendsCount") 
+```
+
+There are too few loans with Investment from Friends to make it a useful predictor of loan performance. However, in the rare occurrence that a loan is invested by friends, it tends to outperform similar loans with the same Credit Score.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots3}
+
+ggplot(aes(x = CreditScoreRangeLower, y = RateofReturn, 
+           group = LoanStatus), 
+       data = FinishedLoan) +
+  geom_line(aes(y= RateofReturn, color = LoanStatus), 
+            stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(550,850,50), limits = c(550,850)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  labs(title = "Rate of Return vs. Credit Score grouped by LoanStatus") 
+
+ggplot(aes(x = ProsperRating..numeric., y = RateofReturn, 
+           group = LoanStatus), 
+       data = FinishedLoan) +
+  geom_line(aes(y= RateofReturn, color = LoanStatus), 
+            stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(1,7,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  labs(title = "Rate of Return vs. Prosper Rating grouped by LoanStatus") 
+
+ggplot(aes(x = ProsperRating..numeric., y = RateofReturn, 
+           group = LoanStatus), 
+       data = FinishedLoan) +
+  geom_jitter(alpha = 1/20)+
+  geom_point(aes(y= RateofReturn, shape = LoanStatus), color = "blue", 
+             size = 3, stat  = 'summary', fun.y = mean) +
+  scale_x_continuous(breaks = seq(1,7,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.1)) +
+  labs(title = "Rate of Return vs. Prosper Rating grouped by LoanStatus") 
+```
+
+For these graphs, I explore if the relationship between loan status and rate of return can be different for different loan status. The initial result surprised me, though further analysis reaffirms my earlier observation. This will be discussed in more details in the section below.
+
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+Loans with income range less than 25,000 tend to have lower Rate of Return. Beyond that, there is no significantly relationship between Rate of Return and higher income range. It seems that higher earners are just as likely as lower earners to default on a loans. Loans invested by friends tend to be safer. However, the number of loans with investment from friends are very small to be used to measure Rate of Return.
+
+### Were there any interesting or surprising interactions between features?
+
+The line graph of the mean Rate of Return by Prosper Rating confused me for a while. In this graph, I attempted to show the mean Rate of Return by Prosper Rating, separated  by Loan Status. The mean Rate of Return for Completed loans shows a downward slope similar to the results of Prosper's Estimated Return by Prosper Rating. As the mean Rates of Return for Defaulted and Chargedoff loans are relatively even between -0.8 and -0.9, I would expect that the combined mean Rate of Return for all loans would be a downward slope. In other words, the mean Rate of Return gets lower with higher Prosper Rating. However, an earlier graph of mean Rate of Return by Prosper Rating shows an upward line from -0.2 to 0 (i.e. mean Rate of Return improves with higher Prosper Rating).
+
+To look at this issue at a different angle, I used a scatter plot with the same variables and parameters. While the mean Rates of Return for Completed, Defaulted, and Chargedoff loans follow the same trend lines as the line graph, it can be seen here that the number of Defaulted and Chargedoff loans is signifiantly higher for loans with lower Prosper Rating. Conversely, the number of Completed loans is lower for low Prosper Rating loans. This change in volume explains how the trend line of mean Rate of Return on Completed Loan can be downward while the overall mean Rate of Return can be upward.
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+No
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_One}
+ggplot(FinishedLoan, aes(ListingCreationYear)) +
+  geom_bar(aes(fill = LoanStatus), position = "dodge") +
+  scale_x_continuous(breaks = seq(2009,2014,1)) +
+  labs(title = "Number of loans per year by type")
+```
+
+### Description One
+
+This bar graph gives viewer a rough idea of the composition of Prosper loans that have finished in the period from 2009 to 2013. Together, the number of Chargedoff and Defaulted loan can be as high as 40% of the number of Completed loans in 2012. This highlights the most important risk of non-collateral consumer loan. 
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+ggplot(aes(x = LoanStatus2), data = FinishedLoan) +
+  geom_point(aes(y = RateofReturn), color = 'red', size = 5, stroke = 2,
+             shape = 3, stat  = 'summary', fun.y = mean) + 
+  geom_point(aes(y = LenderYield), color = 'blue', size = 5, stroke = 2,
+             shape = 1, stat  = 'summary', fun.y = mean) + 
+  geom_point(aes(y = EstimatedReturn), color = 'green', size = 5, stroke = 2,
+             shape = 2, stat  = 'summary', fun.y = mean) + 
+  scale_y_continuous(limits = c(-0.8,0.4),breaks = seq(-0.8,0.4, 0.1)) +
+  labs(title = "Mean RateofReturn (Red) vs LenderYield (Blue) 
+       vs ProsperEstimatedReturn(Green)")
+```
+
+### Description Two
+
+This comparison of mean Rate of Return vs. mean Lender Yield vs. mean Prosper's Estimated Return shows why Prosper's Estimated Return is not a reliable measurement of lender's return on Prosper loans. It seems that Prosper's own metric, at this point, has not accurately predicted default risk: Estimated Return is relatively unchanged for Defaulted loans and Completed loans. In addition, the graph shows that lender's yield can be negatively affected by early payments. By paying off their loans early, the borrowers save on interest expense and cut into lender's profit.
+
+### Plot Three
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Three}
+ggplot(aes(x = CreditScoreRangeLower, 
+           y = RateofReturn, 
+           color = IncomeRange), 
+       data = FinishedLoan) +
+  geom_jitter ()+     
+  geom_smooth(method = "lm", se = FALSE,size=2)  +
+  scale_color_brewer(palette = "reds")
+```
+
+### Description Three
+
+This scatterplot presents a different way to look at the correlation between Credit Score and Rate of Return, grouped by Income Range. Except for unemployed and income range lower than 25,000, the remaining income ranges show a strong positive relationship between Credit Score and Rate of Return.
+
+------
+
+# Reflection
+
+This has been the most time consuming Udacity project for me so far. The sheer volume and number of variables of this dataset make it a daunting task to just understand the data. The complexity of annuity valuation adds one big hurdle to my analysis. I can't find any good guideline from Prosper or Lending Club on how to measure the profitability of its loan. In addition, the default risk is not very well communicated to lenders. As demonstrated by the class action lawsuit in 2008, Prosper lenders are evidently unhappy with their return on investment. In order for a normal investor to get involved in consumer loan, an area that has been exclusively served by bank and qualified financial investor, there must be more guideline and transparency to properly communicate and measure the loan's risk and profitability. It is understandable why the SEC has intervened and classified Prosper Loan as securities that require proper monitoring and regulation.
+
+There are several limitations to my analysis that may affect its result. First of all, since Prosper Score is only available in 2009 and most loans have a 3 year term, the FinishedLoan dataset that I investigated is significantly smaller than the original dataset. Secondly, Prosper's metrics to help guide lenders with their investment were only introduced in 2009. It is possible that these metrics have improved over the year but the effect is not yet shown as these loans are still outstanding and thus, excluded from the FinishedLoan dataset. For this project, I have not investigated if Prosper metrics have changed over the years. Thirdly, since Prosper does not disclose the formula for its metrics, it is possible that my metrics and theirs may not be commensurable. 
